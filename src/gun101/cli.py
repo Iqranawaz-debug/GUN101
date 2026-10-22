@@ -84,33 +84,69 @@ def encrypt(args):
         )
         sys.exit(1)
 
+    # Validate containment and symlinks up front, including with --force (which
+    # publishes via os.replace and therefore bypasses safe_open_write).
     try:
-        out_f = safe_open_write(output_path, force=force)
-    except FileExistsError as e:
-        in_f.close()
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        validate_safe_path(output_path)
     except (OSError, ValueError) as e:
         in_f.close()
         print(f"Error writing output file: {e}", file=sys.stderr)
         sys.exit(1)
 
+    # Stage the container in the destination directory and publish it with an
+    # atomic os.replace() only after encryption succeeds. Writing directly to
+    # output_path would truncate a pre-existing container up front and the
+    # error path would then unlink it, destroying the old file (issue #36).
+    temp_dir = os.path.dirname(os.path.abspath(output_path))
+    temp_path = os.path.join(temp_dir, f".{os.path.basename(output_path)}.tmp.{os.urandom(8).hex()}")
     try:
-        with in_f, out_f:
-            handler.encrypt_stream(in_f, out_f, password, args.keyfile)
-    except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        try:
-            os.unlink(output_path)
-        except OSError:
-            pass
-        sys.exit(1)
+        temp_fd = os.open(
+            temp_path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0),
+            0o600,
+        )
+        temp_f = os.fdopen(temp_fd, "wb")
     except OSError as e:
+        in_f.close()
         print(f"Error writing output file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    output_reserved = False
+
+    def cleanup_staging():
         try:
-            os.unlink(output_path)
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
         except OSError:
             pass
+        if output_reserved:
+            try:
+                os.unlink(output_path)
+            except OSError:
+                pass
+
+    try:
+        with in_f, temp_f:
+            handler.encrypt_stream(in_f, temp_f, password, args.keyfile)
+        # os.replace() preserves the source inode's mode, so re-assert 0o600 on
+        # the staging file before it becomes visible at output_path.
+        os.chmod(temp_path, 0o600)
+        if not force:
+            with safe_open_write(output_path):
+                pass
+            output_reserved = True
+        os.replace(temp_path, output_path)
+    except FileExistsError as e:
+        cleanup_staging()
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
+        cleanup_staging()
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        cleanup_staging()
+        print(f"Error writing output file: {e}", file=sys.stderr)
         sys.exit(1)
 
     print(f"Encrypted file written to: {output_path}")

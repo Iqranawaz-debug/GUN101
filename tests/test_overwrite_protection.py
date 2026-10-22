@@ -256,6 +256,40 @@ class TestEncryptOverwriteProtection:
             container = f.read()
         assert handler.decrypt_file(container, STRONG_PASSWORD) == b"hello new with force"
 
+    def test_encrypt_escape_rejected_with_force(self, workdir, env_password):
+        """--force must not bypass the output containment check."""
+        with open("doc.txt", "wb") as f:
+            f.write(b"data")
+
+        out, err, exc = run_func(
+            cli.encrypt, make_arg(file="doc.txt", keyfile=None, output="../escape.bin", force=True)
+        )
+
+        assert exc is not None and exc.code == 1
+        assert "escape" in err
+        assert not (workdir.parent / "escape.bin").exists()
+
+    def test_encrypt_output_symlink_rejected_with_force(self, workdir, env_password):
+        """--force must not replace an output symlink."""
+        with open("doc.txt", "wb") as f:
+            f.write(b"data")
+        with open("target.bin", "wb") as f:
+            f.write(b"target contents")
+        try:
+            os.symlink("target.bin", "link.bin")
+        except (OSError, NotImplementedError):
+            pytest.skip("symlinks are not available on this platform")
+
+        out, err, exc = run_func(
+            cli.encrypt, make_arg(file="doc.txt", keyfile=None, output="link.bin", force=True)
+        )
+
+        assert exc is not None and exc.code == 1
+        assert "symlink" in err
+        assert os.path.islink("link.bin")
+        with open("target.bin", "rb") as f:
+            assert f.read() == b"target contents"
+
 
 # ---------------------------------------------------------------------------
 # Encrypt input/output identity tests (GitHub Issue #35)
@@ -333,6 +367,109 @@ class TestEncryptInputOutputSameFile:
             assert f.read() == payload
         with open("hard.txt", "rb") as f:
             assert f.read() == payload
+
+
+# ---------------------------------------------------------------------------
+# Encrypt atomicity tests (GitHub Issue #36)
+# ---------------------------------------------------------------------------
+
+
+class TestEncryptAtomicity:
+    @staticmethod
+    def _staging_leftovers():
+        return [name for name in os.listdir(".") if ".tmp." in name]
+
+    def test_failed_encrypt_preserves_existing_output(self, workdir, env_password, monkeypatch):
+        """A write failure must not destroy a pre-existing container."""
+        with open("plain.bin", "wb") as f:
+            f.write(b"NEW PLAINTEXT")
+        with open("existing.enc", "wb") as f:
+            f.write(b"OLD VALUABLE CONTAINER")
+
+        def boom(*args, **kwargs):
+            raise OSError("simulated disk full")
+
+        monkeypatch.setattr(handler, "encrypt_stream", boom)
+        out, err, exc = run_func(
+            cli.encrypt, make_arg(file="plain.bin", keyfile=None, output="existing.enc", force=True)
+        )
+
+        assert exc is not None and exc.code == 1
+        assert "simulated disk full" in err
+        with open("existing.enc", "rb") as f:
+            assert f.read() == b"OLD VALUABLE CONTAINER"
+        assert self._staging_leftovers() == []
+
+    def test_failed_encrypt_creates_no_output_when_absent(self, workdir, env_password, monkeypatch):
+        """A failed first-time encryption must leave no partial output behind."""
+        with open("plain.bin", "wb") as f:
+            f.write(b"payload")
+
+        def boom(*args, **kwargs):
+            raise OSError("simulated disk full")
+
+        monkeypatch.setattr(handler, "encrypt_stream", boom)
+        out, err, exc = run_func(
+            cli.encrypt, make_arg(file="plain.bin", keyfile=None, output="new.enc", force=False)
+        )
+
+        assert exc is not None and exc.code == 1
+        assert not os.path.exists("new.enc")
+        assert self._staging_leftovers() == []
+
+    def test_failed_replace_removes_reserved_output(self, workdir, env_password, monkeypatch):
+        """If publishing fails, the placeholder created to reserve the name is removed."""
+        with open("plain.bin", "wb") as f:
+            f.write(b"payload")
+
+        def boom(*args, **kwargs):
+            raise OSError("simulated rename failure")
+
+        monkeypatch.setattr(os, "replace", boom)
+        out, err, exc = run_func(
+            cli.encrypt, make_arg(file="plain.bin", keyfile=None, output="new.enc", force=False)
+        )
+
+        assert exc is not None and exc.code == 1
+        assert "simulated rename failure" in err
+        assert not os.path.exists("new.enc")
+        assert self._staging_leftovers() == []
+
+    def test_existing_output_without_force_is_preserved(self, workdir, env_password):
+        """The completion-time reservation still refuses to overwrite without --force."""
+        with open("plain.bin", "wb") as f:
+            f.write(b"new payload")
+        with open("existing.enc", "wb") as f:
+            f.write(b"keep me")
+
+        out, err, exc = run_func(
+            cli.encrypt, make_arg(file="plain.bin", keyfile=None, output="existing.enc", force=False)
+        )
+
+        assert exc is not None and exc.code == 1
+        assert "Output file already exists" in err
+        with open("existing.enc", "rb") as f:
+            assert f.read() == b"keep me"
+        assert self._staging_leftovers() == []
+
+    def test_successful_encrypt_publishes_staged_file(self, workdir, env_password):
+        """Success publishes the container with owner-only mode and no temp leftovers."""
+        with open("plain.bin", "wb") as f:
+            f.write(b"hello atomic world")
+
+        out, err, exc = run_func(
+            cli.encrypt, make_arg(file="plain.bin", keyfile=None, output="out.enc", force=False)
+        )
+
+        assert exc is None, err
+        assert "Encrypted file written to: out.enc" in out
+        assert self._staging_leftovers() == []
+        with open("out.enc", "rb") as f:
+            container = f.read()
+        assert handler.decrypt_file(container, STRONG_PASSWORD) == b"hello atomic world"
+        if os.name != "nt":
+            mode = stat.S_IMODE(os.stat("out.enc").st_mode)
+            assert mode == 0o600, f"expected 0o600, got {oct(mode)}"
 
 
 # ---------------------------------------------------------------------------
