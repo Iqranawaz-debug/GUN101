@@ -21,7 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pip-audit -r requirements.lock` failed. All direct and transitive
   dependencies are now pinned with SHA-256 hashes for every published artifact,
   refreshed to the currently resolved versions (`cryptography==50.0.2`,
-  `argon2-cffi-bindings==26.1.0`, `cffi==2.1.1`, `pycparser==3.11`).
+  `argon2-cffi-bindings==26.1.0`, `cffi==2.1.1`, `pycparser==3.11`, and
+  `typing-extensions==4.16.0`, which is conditionally required on
+  Python < 3.11).
 
 ### Changed
 
