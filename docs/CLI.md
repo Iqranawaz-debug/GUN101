@@ -63,11 +63,18 @@ the two commands cannot diverge.
 - `--output` (optional): path to write the encrypted container. Defaults to
   `<file>.gun101`.
 - `-f`, `--force` (optional): overwrite output file if it already exists.
+  Directory-containment and output-symlink checks still apply.
 
 **Outputs**
 
 - Writes the encrypted container to `--output` (or `<file>.gun101`).
 - Prints `Encrypted file written to: <path>` to standard output.
+- The container is staged in a `0600` temporary file in the destination
+  directory and atomically published with `os.replace()` only after encryption
+  completes. If encryption fails, a pre-existing output is left untouched and
+  the staging file is removed.
+- The output must not resolve to the input file (including through a symlink or
+  hard link); such an invocation is refused before anything is written.
 
 **Memory behavior**
 
@@ -78,8 +85,11 @@ the two commands cannot diverge.
 - Cannot read `file` → `Error reading file: ...` on stderr, exit `1`.
 - Weak password or invalid keyfile → `Error: ...` on stderr, exit `1`.
 - Output path is a symlink or escapes the working directory → refused, exit `1`.
+- Output path refers to the input file (including via a symlink or hard link) →
+  refused, exit `1`.
 - Output path already exists and `--force` is not specified → refused, exit `1`.
 - Cannot write output → `Error writing output file: ...` on stderr, exit `1`.
+  Any pre-existing output is preserved.
 
 ### `gun101 decrypt <file> [--keyfile <path>] [--output <path>] [-f|--force]`
 

@@ -13,8 +13,8 @@ maintainers (who release) and users (who verify).
 3. **Tag the release.** Create a git tag named `vX.Y.Z` on the release commit:
 
    ```bash
-   git tag -s v2.2.1 -m "v2.2.1"
-   git push origin v2.2.1
+   git tag -s v2.2.2 -m "v2.2.2"
+   git push origin v2.2.2
    ```
 
    Tags are **cryptographically signed** (`-s`). GitHub "Verified" tags show
@@ -67,7 +67,7 @@ on the PyPI release page).
 The `vX.Y.Z` tags are signed. GitHub shows them as **Verified**. Locally:
 
 ```bash
-git tag -v v2.2.1
+git tag -v v2.2.2
 ```
 
 ## Checking a release before publishing (maintainers)

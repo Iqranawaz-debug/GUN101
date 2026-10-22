@@ -17,6 +17,14 @@ after an upgrade (see [Backward compatibility](#backward-compatibility) below).
 
 ## Version history and upgrade path
 
+### 2.2.1 → 2.2.2
+
+**Required action for users: none.** This is a patch release fixing two
+data-loss bugs in `gun101 encrypt`: the output can no longer alias the input
+file, and a failed encryption no longer truncates or removes an existing
+destination. The container format, CLI interface, and Python API are unchanged,
+and existing encrypted files continue to decrypt normally.
+
 ### 2.2.0 → 2.2.1
 
 **Required action for users: none.** This is a patch release containing fixes

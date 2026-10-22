@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.2] - 2026-10-22
+
+### Fixed
+
+- **`encrypt` refuses to overwrite its own input.** If `--output` referred to
+  the input file — directly, through a symlink, or through a hard link —
+  encryption could truncate the plaintext before reading it. The CLI now
+  compares the opened input file with the resolved output path and aborts
+  before any write (#35).
+- **`encrypt` publishes the container atomically.** The destination used to be
+  opened and truncated before the container was written, and the error path
+  then unlinked it, so a failed encryption destroyed a pre-existing output. The
+  container is now streamed into an `O_EXCL` staging file with mode `0600` in
+  the destination directory and published with a single `os.replace()` only
+  after encryption succeeds. On failure, only the staging file and any
+  destination reservation are removed (#36).
+- **`--force` still enforces output path safety.** Because the force path now
+  publishes via `os.replace()` instead of `safe_open_write()`, the CLI calls
+  `validate_safe_path()` explicitly, so directory escapes and output symlinks
+  remain rejected.
+
 ## [2.2.1] - 2026-10-22
 
 ### Fixed
