@@ -203,7 +203,7 @@ GUN-101 uses a bounded-memory streaming architecture for CLI file encryption and
 
 - **Fixed-size chunk processing**: Files are processed in fixed chunks (default 64 KB, configured by `config.DEFAULT_CHUNK_SIZE`). Plaintext is encrypted incrementally into Base64 ciphertext, and ciphertext is parsed and decrypted incrementally back to plaintext.
 - **Bounded RAM consumption**: The complete input file, full ciphertext, and full Base64 representation are never loaded into memory. Memory usage remains constant and small ($O(1)$) regardless of whether processing small files or multi-gigabyte archives.
-- **Preserved container format**: The on-disk `.gun101` v2.1 container format is fully preserved and identical. Streaming encrypted containers can be decrypted by non-streaming readers, and non-streaming containers can be decrypted by streaming readers.
+- **Preserved container format**: The on-disk `.gun101` v2.1 container format is fully preserved and identical. Streaming encrypted containers can be decrypted by non-streaming readers, and non-streaming containers can be decrypted by streaming readers. All metadata fields must precede the `ciphertext` field, which is the canonical layout emitted by the encryptor; v2.1 associated data is reconstructed from metadata parsed before the ciphertext.
 - **Integrity protection**: AES-256-GCM authenticated encryption and constant-time tag verification are strictly preserved. To avoid Release of Unverified Plaintext (RUP), decrypted plaintext is written to a temporary staging file in the target directory and atomically moved into place only after the GCM tag is fully validated.
 
 ## Library Interface
@@ -213,7 +213,7 @@ The `gun101` Python package exposes both in-memory and streaming operations prog
 - `gun101.handler.encrypt_stream(in_stream, out_stream, password: str, keyfile_path: str = None, chunk_size: int = DEFAULT_CHUNK_SIZE) -> None`
   — stream plaintext from `in_stream` and write encrypted container to `out_stream` using bounded memory.
 - `gun101.handler.decrypt_stream(in_stream, out_stream, password: str, keyfile_path: str = None, chunk_size: int = DEFAULT_CHUNK_SIZE) -> None`
-  — stream encrypted container from `in_stream` and write decrypted plaintext to `out_stream` using bounded memory. Raises `ValueError("Decryption failed")` on error.
+  — stream encrypted container from `in_stream` and write decrypted plaintext to `out_stream` using bounded memory. Raises `ValueError("Decryption failed")` on error. **The caller must not expose `out_stream` until this function returns successfully**: chunks are written before the GCM tag is verified. The CLI provides this guarantee by staging output in a temporary file; library callers that cannot should use the verified in-memory `decrypt_file` instead.
 - `gun101.cipher.StreamEncryptor(key: bytes, nonce: bytes, associated_data: bytes = None)`
   — incremental AES-256-GCM encryptor with `update(chunk)` and `finalize() -> tuple[bytes, bytes]`.
 - `gun101.cipher.StreamDecryptor(key: bytes, nonce: bytes, tag: bytes = None, associated_data: bytes = None)`

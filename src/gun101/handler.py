@@ -514,6 +514,23 @@ def decrypt_stream(
 
     Raises:
         ValueError: On any error or authentication failure.
+
+    Warning:
+        AES-GCM can only verify the authentication tag after the final
+        ciphertext chunk has been processed. Plaintext is therefore written to
+        ``out_stream`` incrementally *before* authenticity is established, so
+        callers must not expose that output (for example, by publishing a file)
+        until this function returns successfully. The CLI stages the output in
+        a temporary file and only moves it into place after the tag has been
+        verified. Callers that cannot guarantee this should use
+        :func:`decrypt_file`, which verifies the tag before returning.
+
+    Note:
+        Metadata fields must precede the ``ciphertext`` field, which is the
+        canonical layout produced by :func:`encrypt_stream`. The associated
+        data used for v2.1 authentication is reconstructed from the metadata
+        parsed before the ciphertext, so fields placed after it would not be
+        covered and authentication would fail (fail-closed).
     """
     reader = StreamingContainerReader(in_stream, chunk_size=chunk_size)
     meta, ct_gen, finish_meta, saw_ciphertext = reader.read_metadata_and_ciphertext_chunks()

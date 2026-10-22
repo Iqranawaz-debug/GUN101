@@ -99,7 +99,7 @@ countermeasures in the code, satisfying `know_common_errors`.
 | C6. Path traversal / symlink attacks on output | Output paths are rejected if they are symlinks or resolve outside the working directory, before any write occurs (`cli.py`, `keyfile.py`). |
 | C7. Unvalidated input | Every external input is validated (allowlisted): file bytes type, password policy, keyfile length, salt/nonce/key lengths in `cipher.py`/`kdf.py`, container `protocol`/`version` allowlist and base64 fields in `handler.py`. |
 | C8. Missing integrity of metadata | Container header fields are bound into AES-GCM associated data (v2.1), so tampering with the header cannot go undetected (`handler.py`). |
-| C9. Insecure dependency surface | Only `argon2-cffi` and `cryptography`; versions pinned with hashes in `requirements.lock`; automated `pip-audit` scans for known vulnerable dependencies in CI. |
+| C9. Insecure dependency surface | Only two direct dependencies, `argon2-cffi` and `cryptography`; all direct and transitive versions are pinned with hashes in `requirements.lock`; automated `pip-audit` scans the pinned lockfile for known vulnerable dependencies in CI. |
 | C10. Unreviewed code paths / regressions | Mandatory tests (positive + negative) for all security-affecting functions, run in CI on every change (`CONTRIBUTING.md`, `.github/workflows/ci.yml`); static analysis with bandit. |
 
 ## 5. Argument validity and limits

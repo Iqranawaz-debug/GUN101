@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-10-22
+
+### Fixed
+
+- **`decrypt` applies the output mode before publishing the plaintext.** The
+  `0600` re-assertion ran after `os.replace()`. If it failed, cleanup removed
+  the decrypted output in the default path but left it behind with `--force`.
+  The `chmod` now runs on the staging file before publication, so a failure
+  aborts while plaintext is still confined to the temporary file and cleanup
+  behaves identically in both modes.
+- **`requirements.lock` resolves and audits cleanly.** The lock omitted the
+  transitive `cffi` and `pycparser` pins, so both
+  `pip install --require-hashes -r requirements.lock` and
+  `pip-audit -r requirements.lock` failed. All direct and transitive
+  dependencies are now pinned with SHA-256 hashes for every published artifact,
+  refreshed to the currently resolved versions (`cryptography==50.0.2`,
+  `argon2-cffi-bindings==26.1.0`, `cffi==2.1.1`, `pycparser==3.11`).
+
+### Changed
+
+- The CI dependency audit now runs against `requirements.lock`, so the audited
+  versions are the same fully pinned set that is documented for users.
+- Documentation now states that `handler.decrypt_stream()` writes plaintext
+  before the GCM tag is verified and that callers must not expose its output
+  until it returns successfully; the CLI's staging file is called out as the
+  reference implementation. The canonical metadata-before-ciphertext field
+  order required for v2.1 AAD reconstruction is also documented.
+
 ## [2.2.0] - 2026-09-28
 
 ### Security

@@ -17,6 +17,13 @@ after an upgrade (see [Backward compatibility](#backward-compatibility) below).
 
 ## Version history and upgrade path
 
+### 2.2.0 → 2.2.1
+
+**Required action for users: none.** This is a patch release containing fixes
+to output-file cleanup and dependency pinning. The container format, CLI
+interface, and Python API are unchanged, and existing encrypted files continue
+to decrypt normally.
+
 ### 2.0.x → 2.1.x
 
 **Required action for users: none.** Existing v2.0 encrypted files continue to

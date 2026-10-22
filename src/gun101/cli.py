@@ -133,15 +133,17 @@ def decrypt(args):
     try:
         with in_f, temp_f:
             handler.decrypt_stream(in_f, temp_f, password, args.keyfile)
+        # Re-assert 0o600 on the staging file *before* publishing it.
+        # os.replace() preserves the source inode's mode, so the output inherits
+        # this mode. Doing it before the replace also means a chmod failure
+        # aborts while the plaintext is still confined to the staging file,
+        # rather than failing after it has been installed at output_path.
+        os.chmod(temp_path, 0o600)
         if not force:
             with safe_open_write(output_path):
                 pass
             output_reserved = True
         os.replace(temp_path, output_path)
-        # os.replace preserves the source inode's mode, so the output inherits
-        # the staging file's 0o600. Re-assert it for filesystems that do not
-        # honour the mode passed to os.open().
-        os.chmod(output_path, 0o600)
     except FileExistsError as e:
         try:
             if os.path.exists(temp_path):

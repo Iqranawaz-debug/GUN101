@@ -155,7 +155,7 @@ All errors produce generic messages (e.g., "Decryption failed") to avoid leaking
 
 ## Reproducible Builds
 
-For security-critical applications, exact dependency versions should be pinned to prevent supply chain attacks and ensure reproducible builds. A `requirements.lock` file is provided with exact versions and cryptographic hashes:
+For security-critical applications, exact dependency versions should be pinned to prevent supply chain attacks and ensure reproducible builds. A `requirements.lock` file is provided with exact versions and cryptographic hashes for all direct and transitive dependencies:
 
 ```bash
 pip install --require-hashes -r requirements.lock

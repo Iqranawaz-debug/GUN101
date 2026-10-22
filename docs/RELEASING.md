@@ -13,8 +13,8 @@ maintainers (who release) and users (who verify).
 3. **Tag the release.** Create a git tag named `vX.Y.Z` on the release commit:
 
    ```bash
-   git tag -s v2.2.0 -m "v2.2.0"
-   git push origin v2.2.0
+   git tag -s v2.2.1 -m "v2.2.1"
+   git push origin v2.2.1
    ```
 
    Tags are **cryptographically signed** (`-s`). GitHub "Verified" tags show
@@ -41,7 +41,7 @@ workflow of this repository.
 ### Verify the package matches the source
 
 You can pin exact versions with cryptographic hashes using the project's
-`requirements.lock` (each dependency is listed with its SHA-256 hashes):
+`requirements.lock` (all direct and transitive dependencies are listed with their SHA-256 hashes):
 
 ```bash
 pip install --require-hashes -r requirements.lock
@@ -67,7 +67,7 @@ on the PyPI release page).
 The `vX.Y.Z` tags are signed. GitHub shows them as **Verified**. Locally:
 
 ```bash
-git tag -v v2.2.0
+git tag -v v2.2.1
 ```
 
 ## Checking a release before publishing (maintainers)

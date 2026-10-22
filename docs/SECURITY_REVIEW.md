@@ -84,7 +84,7 @@ set declared in `pyproject.toml`, and the release/installation channel.
 
 - Runtime dependencies are limited to `argon2-cffi` and `cryptography`, both
   widely audited and actively maintained.
-- `pip-audit -r requirements.txt` in CI: no known vulnerabilities at review time.
+- `pip-audit -r requirements.lock` in CI: no known vulnerabilities at review time.
 
 ### Tests
 

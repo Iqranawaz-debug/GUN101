@@ -140,6 +140,8 @@ def safe_open_write(path, force=False):
     else:
         raise OSError("Unable to safely open file after repeated attempts")
 
+    # Reached only via the `break` above: the file was created with O_EXCL,
+    # so no pre-existing inode needs to be compared against.
     try:
         _validate_open_file(fd, path)
         return os.fdopen(fd, "wb")

@@ -19,7 +19,7 @@ tools outlive individual releases — update to a supported version promptly.
 | 2.0.x    | Maintained for critical security fixes only; users should upgrade.     |
 | < 2.0    | End of life. No security fixes. Upgrade required.                      |
 
-The current release, **2.2.0**, is fully supported.
+The current release, **2.2.1**, is fully supported.
 
 ## Reporting a vulnerability
 
