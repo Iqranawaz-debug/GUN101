@@ -258,6 +258,84 @@ class TestEncryptOverwriteProtection:
 
 
 # ---------------------------------------------------------------------------
+# Encrypt input/output identity tests (GitHub Issue #35)
+# ---------------------------------------------------------------------------
+
+
+class TestEncryptInputOutputSameFile:
+    def test_same_path_refused_even_with_force(self, workdir, env_password):
+        """Encrypting a file onto itself must fail before the input is truncated."""
+        payload = b"precious plaintext that must survive"
+        with open("doc.txt", "wb") as f:
+            f.write(payload)
+
+        out, err, exc = run_func(
+            cli.encrypt, make_arg(file="doc.txt", keyfile=None, output="doc.txt", force=True)
+        )
+
+        assert exc is not None and exc.code == 1
+        assert "Refusing to overwrite the input file" in err
+        with open("doc.txt", "rb") as f:
+            assert f.read() == payload
+
+    def test_relative_alias_refused(self, workdir, env_password):
+        """A different spelling of the same path must also be refused."""
+        payload = b"still precious"
+        with open("doc.txt", "wb") as f:
+            f.write(payload)
+
+        out, err, exc = run_func(
+            cli.encrypt, make_arg(file="doc.txt", keyfile=None, output="./doc.txt", force=True)
+        )
+
+        assert exc is not None and exc.code == 1
+        assert "Refusing to overwrite the input file" in err
+        with open("doc.txt", "rb") as f:
+            assert f.read() == payload
+
+    def test_symlink_to_input_refused(self, workdir, env_password):
+        """An output symlink resolving to the input must be refused."""
+        payload = b"do not clobber via symlink"
+        with open("doc.txt", "wb") as f:
+            f.write(payload)
+        try:
+            os.symlink("doc.txt", "alias.txt")
+        except (OSError, NotImplementedError):
+            pytest.skip("symlinks are not available on this platform")
+
+        out, err, exc = run_func(
+            cli.encrypt, make_arg(file="doc.txt", keyfile=None, output="alias.txt", force=True)
+        )
+
+        assert exc is not None and exc.code == 1
+        assert "Refusing to overwrite the input file" in err
+        assert os.path.islink("alias.txt")
+        with open("doc.txt", "rb") as f:
+            assert f.read() == payload
+
+    def test_hardlink_to_input_refused(self, workdir, env_password):
+        """A hard link to the input is the same inode and must be refused."""
+        payload = b"do not clobber via hardlink"
+        with open("doc.txt", "wb") as f:
+            f.write(payload)
+        try:
+            os.link("doc.txt", "hard.txt")
+        except (OSError, NotImplementedError):
+            pytest.skip("hard links are not available on this platform")
+
+        out, err, exc = run_func(
+            cli.encrypt, make_arg(file="doc.txt", keyfile=None, output="hard.txt", force=True)
+        )
+
+        assert exc is not None and exc.code == 1
+        assert "Refusing to overwrite the input file" in err
+        with open("doc.txt", "rb") as f:
+            assert f.read() == payload
+        with open("hard.txt", "rb") as f:
+            assert f.read() == payload
+
+
+# ---------------------------------------------------------------------------
 # Decrypt overwrite protection tests
 # ---------------------------------------------------------------------------
 

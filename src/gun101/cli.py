@@ -9,7 +9,27 @@ import os
 import sys
 
 from . import config, handler, keyfile
-from ._util import safe_open_write, validate_safe_path
+from ._util import _same_file, safe_open_write, validate_safe_path
+
+
+def _refers_to_same_file(in_f, input_path: str, output_path: str) -> bool:
+    """Return True when ``output_path`` resolves to the file open on ``in_f``.
+
+    This guards against encrypting a file onto itself: opening the destination
+    with ``O_TRUNC`` would destroy the plaintext before the first read
+    (GitHub issue #35). The inode comparison catches hard links; the resolved
+    path comparison catches symlink aliases and filesystems that do not report
+    usable inode numbers. Returns False when the output does not exist.
+    """
+    try:
+        output_stat = os.stat(output_path)
+    except OSError:
+        return False
+
+    if _same_file(os.fstat(in_f.fileno()), output_stat):
+        return True
+    return os.path.realpath(input_path) == os.path.realpath(output_path)
+
 
 
 def get_password():
@@ -52,6 +72,18 @@ def encrypt(args):
 
     output_path = args.output if args.output else (args.file + '.gun101')
     force = getattr(args, 'force', False)
+
+    # Never let the destination alias the input. With --force, safe_open_write
+    # would truncate the same inode before encrypt_stream reads it, silently
+    # replacing the plaintext with an encryption of an empty file (issue #35).
+    if _refers_to_same_file(in_f, args.file, output_path):
+        in_f.close()
+        print(
+            "Error: Refusing to overwrite the input file; choose a different --output path",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     try:
         out_f = safe_open_write(output_path, force=force)
     except FileExistsError as e:
